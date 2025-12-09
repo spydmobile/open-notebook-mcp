@@ -1,0 +1,19 @@
+[project]
+name = "open-notebook-mcp"
+version = "0.1.0"
+description = "MCP server that wraps the Open Notebook API"
+authors = [
+    { name = "copilot-swe-agent[bot]", email = "198982749+Copilot@users.noreply.github.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "httpx>=0.28.1",
+    "mcp[cli]>=1.23.2",
+]
+
+[project.scripts]
+open-notebook-mcp = "open_notebook_mcp:main"
+
+[build-system]
+requires = ["uv_build>=0.9.16,<0.10.0"]
+build-backend = "uv_build"
