@@ -246,27 +246,35 @@ history = get_chat_session(session_id=session_id)
 The server provides 39 tools across multiple categories:
 
 ### Meta Tools
+
 - `search_capabilities` - Progressive tool discovery
 
 ### Notebooks (5 tools)
+
 - `list_notebooks`, `get_notebook`, `create_notebook`, `update_notebook`, `delete_notebook`
 
 ### Sources (5 tools)
+
 - `list_sources`, `get_source`, `create_source`, `update_source`, `delete_source`
 
 ### Notes (5 tools)
+
 - `list_notes`, `get_note`, `create_note`, `update_note`, `delete_note`
 
 ### Search (3 tools)
+
 - `search`, `ask_question`, `ask_simple`
 
 ### Models (5 tools)
+
 - `list_models`, `get_model`, `create_model`, `delete_model`, `get_default_models`
 
 ### Chat (7 tools)
+
 - `list_chat_sessions`, `create_chat_session`, `get_chat_session`, `update_chat_session`, `delete_chat_session`, `execute_chat`, `get_chat_context`
 
 ### Settings (2 tools)
+
 - `get_settings`, `update_settings`
 
 ## Architecture
@@ -304,7 +312,14 @@ Test the server using the MCP Inspector:
 mcp dev src/open_notebook_mcp/server.py
 ```
 
+or
+
+```bash
+npx @modelcontextprotocol/inspector uv --directory ./src/open_notebook_mcp "run" "server.py"
+```
+
 This opens an interactive inspector where you can:
+
 1. Browse available tools
 2. Test tool calls
 3. Inspect responses
@@ -349,6 +364,7 @@ See LICENSE file for details.
 ## Support
 
 For issues related to:
+
 - **This MCP server**: Open an issue in this repository
 - **Open Notebook itself**: Visit the [Open Notebook repository](https://github.com/lfnovo/open-notebook)
 - **MCP protocol**: Check the [MCP documentation](https://modelcontextprotocol.io/)

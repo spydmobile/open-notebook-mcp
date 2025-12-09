@@ -5,12 +5,14 @@ Thank you for your interest in contributing! This document provides guidelines f
 ## Development Setup
 
 1. **Clone the repository**
+
    ```bash
    git clone https://github.com/PiotrAleksander/open-notebook-mcp.git
    cd open-notebook-mcp
    ```
 
 2. **Install dependencies**
+
    ```bash
    uv sync
    ```
@@ -74,18 +76,18 @@ Capability(
 @mcp.tool()
 async def my_new_tool(param1: str, param2: Optional[int] = None) -> dict[str, Any]:
     """Brief one-line description.
-    
+
     Args:
         param1: Description of param1
         param2: Optional description of param2
-    
+
     Returns:
         Dictionary with result data
     """
     data = {"param1": param1}
     if param2 is not None:
         data["param2"] = param2
-    
+
     result = await make_request("GET", "/api/endpoint", params=data)
     return {
         "request_id": str(uuid.uuid4()),
@@ -113,6 +115,12 @@ Use the MCP Inspector for interactive testing:
 # Note: This may not work if mcp dev has issues with the file structure
 # Alternatively, just run the server directly
 uv run open-notebook-mcp
+```
+
+or
+
+```bash
+npx @modelcontextprotocol/inspector uv --directory ./src/open_notebook_mcp "run" "server.py"
 ```
 
 Or test directly:
@@ -158,7 +166,7 @@ async def list_items(
     params = {"limit": limit, "offset": offset}
     if filter_param is not None:
         params["filter"] = filter_param
-    
+
     items = await make_request("GET", "/api/items", params=params)
     return {
         "request_id": str(uuid.uuid4()),
@@ -179,7 +187,7 @@ async def create_item(
     data = {"required_field": required_field}
     if optional_field is not None:
         data["optional_field"] = optional_field
-    
+
     item = await make_request("POST", "/api/items", json_data=data)
     return {
         "request_id": str(uuid.uuid4()),
@@ -202,7 +210,7 @@ async def update_item(
         data["field1"] = field1
     if field2 is not None:
         data["field2"] = field2
-    
+
     item = await make_request("PUT", f"/api/items/{item_id}", json_data=data)
     return {
         "request_id": str(uuid.uuid4()),
@@ -213,21 +221,25 @@ async def update_item(
 ## Pull Request Process
 
 1. **Fork and Branch**
+
    ```bash
    git checkout -b feature/my-new-feature
    ```
 
 2. **Make Changes**
+
    - Follow coding standards
    - Update CAPABILITIES index
    - Add tests if applicable
 
 3. **Test Locally**
+
    ```bash
    uv run python tests/test_capabilities.py
    ```
 
 4. **Commit**
+
    ```bash
    git add .
    git commit -m "feat: add support for X endpoint"
@@ -251,6 +263,7 @@ Follow conventional commits:
 - `chore:` Build process or auxiliary tool changes
 
 Examples:
+
 - `feat: add support for transformations API`
 - `fix: handle empty response in delete operations`
 - `docs: update README with chat examples`
