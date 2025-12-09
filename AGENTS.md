@@ -9,7 +9,7 @@ Core idea: avoid stuffing every tool definition + every intermediate result into
 
 ## 1) Prime directive: context efficiency > everything
 
-1. **Default to small outputs.** If it might be big, return a *summary + handle* (cursor/id/path).
+1. **Default to small outputs.** If it might be big, return a _summary + handle_ (cursor/id/path).
 2. **Filter/transform server-side.** Don’t stream 10,000 rows into the model just to filter them.
 3. **Progressive disclosure is mandatory.** Every server must implement `search_capabilities(...)` with a `detail` level.
 4. **Prefer composable tools.** Many small orthogonal tools beat one mega-tool.
@@ -24,6 +24,7 @@ You are standardizing a discovery pattern across all MCP servers:
 ### 2.1 Required tool: `search_capabilities`
 
 **Contract**
+
 - Inputs:
   - `query: str` (free text)
   - `detail: Literal["name","summary","full"] = "summary"`
@@ -34,12 +35,14 @@ You are standardizing a discovery pattern across all MCP servers:
   - `hint: str | None` (optional “try these queries/tags”)
 
 **Detail levels**
+
 - `name`: tool names only
 - `summary`: name + one-liner + tags
 - `full`: summary + parameters + return shape + 1 example call + typical output size
 
 **Why**
-- Lets Codex find *just* what it needs without loading every tool definition.
+
+- Lets Codex find _just_ what it needs without loading every tool definition.
 - Lets you keep tool descriptions minimal and stable.
 
 ### 2.2 Optional but strong: `manifest` resource
@@ -52,7 +55,9 @@ Use it for humans and debugging, not as a substitute for `search_capabilities`.
 ## 3) Choose the right surface: tools vs resources vs prompts
 
 ### Tools (`@mcp.tool()`)
+
 Use for:
+
 - side effects (create/update/send)
 - computation (filter/join/aggregate/convert)
 - “verbs” with arguments
@@ -60,33 +65,41 @@ Use for:
 **Rule:** tools are small + chainable.
 
 ### Resources
+
 Use for:
+
 - read-only access patterns (“GET-like”)
 - canonical docs, schemas, configs, snapshots
 
 **Rule:** if it can be large, provide metadata as a resource and an export/transform tool for bulk.
 
 ### Prompts
+
 Use for:
+
 - stable instruction templates
-Keep prompts short and stable.
+  Keep prompts short and stable.
 
 ---
 
 ## 4) Server API design patterns (Codex-optimized)
 
 ### 4.1 List/search tools must have these knobs
+
 - `limit` (default 25–50, max 200)
 - `cursor` (or offset)
 - `fields` (optional selection)
 - `detail` (name/summary/full)
 
 ### 4.2 “Return small; export big” rule
+
 If output might exceed a few KB:
+
 - return summary + `cursor` or `artifact_path`
 - provide a separate export tool (CSV/JSONL/parquet) if bulk is needed
 
 ### 4.3 Stable naming
+
 - `snake_case`
 - `verb_noun` (e.g. `list_orders`, `get_order`, `update_order_status`)
 - never rename tools casually; treat names as API
@@ -96,19 +109,24 @@ If output might exceed a few KB:
 ## 5) Reliability contracts (non-negotiable)
 
 ### 5.1 Timeouts
+
 All outbound I/O must set explicit timeouts (per request). (Example: 10–30s)
 
 ### 5.2 Retries
+
 Retry only when safe:
+
 - idempotent reads
 - idempotent writes with idempotency keys
-Respect rate limits.
+  Respect rate limits.
 
 ### 5.3 Concurrency
+
 - Use `async def` for I/O tools.
 - Reuse clients (HTTP/DB) via lifespan/context when possible.
 
 ### 5.4 Logging
+
 For STDIO servers, **stdout is protocol**. Never print debug logs to stdout.
 Log to stderr via `logging`.
 
@@ -117,6 +135,7 @@ Log to stderr via `logging`.
 ## 6) Error contract
 
 Every tool must:
+
 - validate inputs early
 - return or raise an error that includes:
   - `error_code` (stable)
@@ -127,6 +146,7 @@ Every tool must:
 Never include secrets or stack traces in returned errors.
 
 Batch tools should return partial results:
+
 ```json
 { "ok": [...], "failed": [...], "summary": { "ok": 10, "failed": 2 } }
 ```
@@ -139,6 +159,7 @@ Standard transports include **stdio** and **Streamable HTTP**.
 Streamable HTTP is positioned as the production successor to SSE in FastMCP materials.
 
 ### 7.1 Single codebase, both paths
+
 - Local dev + Codex harness: **STDIO** (default)
 - Remote/prod: **Streamable HTTP** (use `stateless_http` when running multiple replicas)
 
@@ -155,6 +176,7 @@ uv add "mcp[cli]" httpx
 ```
 
 FastMCP CLI (dev loop, install):
+
 ```bash
 mcp dev server.py
 mcp install server.py
@@ -166,6 +188,7 @@ mcp run server.py
 ## 9) Canonical server template (ALL servers start here)
 
 This template includes:
+
 - standardized `search_capabilities`
 - strict output sizing patterns
 - dual transport entrypoint
@@ -324,25 +347,31 @@ if __name__ == "__main__":
 
 When asked to add features/tools to a server:
 
-1) **Update CAPABILITIES first**
+1. **Update CAPABILITIES first**
+
 - Add an entry for the new tool before writing the tool.
 - Decide default output size and “detail knobs”.
 
-2) **Write core logic as pure functions**
+2. **Write core logic as pure functions**
+
 - Put side-effect free logic in `core.py`.
 - MCP tool functions in `server.py` should be thin wrappers.
-This makes unit tests trivial.
+  This makes unit tests trivial.
 
-3) **Add tool wrapper**
+3. **Add tool wrapper**
+
 - typed args, short docstring, deterministic output
 - include `limit/cursor/detail` if the tool can return lists
 
-4) **Write tests**
+4. **Write tests**
+
 - unit tests for core logic
 - contract tests for tool output shapes
 
-5) **Manual smoke via Inspector**
+5. **Manual smoke via Inspector**
+
 - `mcp dev server.py` to inspect schema and failure modes.
+- alternatively `npx @modelcontextprotocol/inspector uv --directory ./src/open_notebook_mcp "run" "server.py"`
 
 ---
 
@@ -351,6 +380,7 @@ This makes unit tests trivial.
 The goal is: “tool works” AND “tool returns what downstream code expects”.
 
 ### 11.1 Suggested structure
+
 ```
 my_server/
   src/my_server/
@@ -363,6 +393,7 @@ my_server/
 ```
 
 ### 11.2 Contract test example (shape + limits)
+
 ```python
 # tests/test_tools_contract_discovery.py
 from my_server.server import search_capabilities
@@ -382,6 +413,7 @@ def test_search_capabilities_full_is_richer():
 ```
 
 ### 11.3 I/O tools: mock upstream
+
 Use `respx` to mock `httpx` for deterministic tests. Keep tests offline.
 
 ---
@@ -389,6 +421,7 @@ Use `respx` to mock `httpx` for deterministic tests. Keep tests offline.
 ## 12) Definition of done
 
 A server is “done” when:
+
 - `search_capabilities` exists and is accurate (matches reality)
 - list/search tools have `limit` and default small outputs
 - no stdout logging
