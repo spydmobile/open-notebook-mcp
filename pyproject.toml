@@ -3,7 +3,7 @@ name = "open-notebook-mcp"
 version = "0.1.0"
 description = "MCP server that wraps the Open Notebook API"
 authors = [
-    { name = "Piotr Mrzygłowski", email = "piotrhugonow@gmail.com" }
+    { name = "Piotr Mrzygłowski", email = "piotr@epochal.dev" }
 ]
 requires-python = ">=3.12"
 dependencies = [
