@@ -1,6 +1,6 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.PiotrAleksander/open-notebook",
+  "name": "io.github.Epochal-dev/open-notebook",
   "description": "MCP server that wraps the Open Notebook API",
   "repository": {
     "url": "https://github.com/Epochal-dev/open-notebook-mcp",

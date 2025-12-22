@@ -1,6 +1,6 @@
 # Open Notebook MCP Server
 
-<!-- mcp-name: io.github.PiotrAleksander/open-notebook -->
+<!-- mcp-name: io.github.Epochal-dev/open-notebook -->
 
 An MCP (Model Context Protocol) server that provides tools to interact with the [Open Notebook](https://github.com/lfnovo/open-notebook) API. This server enables AI assistants like Claude to manage notebooks, sources, notes, search content, and interact with AI models through Open Notebook.
 
