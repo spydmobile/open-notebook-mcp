@@ -1,0 +1,36 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.PiotrAleksander/open-notebook",
+  "description": "MCP server that wraps the Open Notebook API",
+  "repository": {
+    "url": "https://github.com/Epochal-dev/open-notebook-mcp",
+    "source": "github"
+  },
+  "version": "0.1.1",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "open-notebook-mcp",
+      "version": "0.1.1",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "description": "URL of your Open Notebook instance",
+          "isRequired": true,
+          "format": "string",
+          "isSecret": false,
+          "name": "OPEN_NOTEBOOK_URL"
+        },
+        {
+          "description": "Authentication password (if APP_PASSWORD is set in Open Notebook)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": true,
+          "name": "OPEN_NOTEBOOK_PASSWORD"
+        }
+      ]
+    }
+  ]
+}

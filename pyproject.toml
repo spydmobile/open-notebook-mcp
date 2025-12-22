@@ -1,15 +1,20 @@
 [project]
 name = "open-notebook-mcp"
-version = "0.1.0"
+version = "0.1.1"
 description = "MCP server that wraps the Open Notebook API"
 authors = [
-    { name = "Piotr Mrzygłowski", email = "piotrhugonow@gmail.com" }
+    { name = "Piotr Mrzygłowski", email = "piotr@epochal.dev" }
 ]
+readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "httpx>=0.28.1",
     "mcp[cli]>=1.23.2",
 ]
+
+[project.urls]
+Repository = "https://github.com/Epochal-dev/open-notebook-mcp"
+Homepage = "https://github.com/Epochal-dev/open-notebook-mcp"
 
 [project.scripts]
 open-notebook-mcp = "open_notebook_mcp:main"
