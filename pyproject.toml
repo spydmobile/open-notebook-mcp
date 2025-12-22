@@ -1,6 +1,6 @@
 [project]
 name = "open-notebook-mcp"
-version = "0.2.0"
+version = "0.3.0"
 description = "MCP server that wraps the Open Notebook API"
 authors = [
     { name = "Piotr Mrzygłowski", email = "piotr@epochal.dev" }
