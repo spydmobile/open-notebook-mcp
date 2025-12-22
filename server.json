@@ -1,17 +1,17 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.Epochal-dev/open-notebook-mcp",
+  "name": "io.github.PiotrAleksander/open-notebook",
   "description": "MCP server that wraps the Open Notebook API",
   "repository": {
     "url": "https://github.com/Epochal-dev/open-notebook-mcp",
     "source": "github"
   },
-  "version": "0.1.0",
+  "version": "0.1.1",
   "packages": [
     {
       "registryType": "pypi",
       "identifier": "open-notebook-mcp",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "transport": {
         "type": "stdio"
       },
