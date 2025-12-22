@@ -108,10 +108,20 @@ for domain in \
     "vscode.blob.core.windows.net" \
     "update.code.visualstudio.com"; do
     echo "Resolving $domain..."
-    ips=$(dig +noall +answer A "$domain" | awk '$4 == "A" {print $5}')
-    if [ -z "$ips" ]; then
-        echo "ERROR: Failed to resolve $domain"
-        exit 1
+    
+    # Special case: host.docker.internal often lives in /etc/hosts, not DNS
+    if [ "$domain" = "host.docker.internal" ]; then
+        ips=$(getent hosts "$domain" | awk '{print $1}' | grep -E '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$' || true)
+        if [ -z "$ips" ]; then
+            echo "WARNING: Failed to resolve $domain from /etc/hosts - skipping"
+            continue
+        fi
+    else
+        ips=$(dig +noall +answer A "$domain" | awk '$4 == "A" {print $5}')
+        if [ -z "$ips" ]; then
+            echo "ERROR: Failed to resolve $domain"
+            exit 1
+        fi
     fi
     
     while read -r ip; do
