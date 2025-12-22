@@ -12,6 +12,11 @@ dependencies = [
     "mcp[cli]>=1.23.2",
 ]
 
+[dependency-groups]
+dev = [
+    "pytest>=8.3.4",
+]
+
 [project.urls]
 Repository = "https://github.com/Epochal-dev/open-notebook-mcp"
 Homepage = "https://github.com/Epochal-dev/open-notebook-mcp"
