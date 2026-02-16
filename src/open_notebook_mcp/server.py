@@ -911,10 +911,13 @@ async def search(
     # Note: intentionally NOT passing notebook_id to backend (it's ignored)
     # See: https://github.com/lfnovo/open-notebook/issues/574
 
-    results = await make_request("POST", "/api/search", json_data=data)
+    response = await make_request("POST", "/api/search", json_data=data)
+
+    # API returns {"results": [...], "total_count": N, "search_type": "..."}
+    result_items = response.get("results", []) if isinstance(response, dict) else response
 
     # Post-filter by notebook (workaround for lfnovo/open-notebook#574)
-    if notebook_id is not None and isinstance(results, list):
+    if notebook_id is not None and isinstance(result_items, list):
         sources = await make_request(
             "GET", "/api/sources",
             params={"notebook_id": notebook_id, "limit": 100},
@@ -930,14 +933,14 @@ async def search(
         if isinstance(notes, list):
             allowed_ids.update(n.get("id") for n in notes if n.get("id"))
 
-        results = [r for r in results if r.get("id") in allowed_ids]
+        result_items = [r for r in result_items if r.get("id") in allowed_ids]
 
-    if isinstance(results, list):
-        results = results[:limit]
+    if isinstance(result_items, list):
+        result_items = result_items[:limit]
 
     return {
         "request_id": generate_request_id(),
-        "results": results,
+        "results": result_items,
     }
 
 @mcp.tool()
