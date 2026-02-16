@@ -899,15 +899,42 @@ async def search(
         Search results
     """
     limit = max(1, min(limit, 50))
+
+    # Request more if filtering, to ensure enough results survive post-filter
+    request_limit = min(limit * 3, 50) if notebook_id else limit
+
     data = {
         "query": query,
         "type": type,
-        "limit": limit,
+        "limit": request_limit,
     }
-    if notebook_id is not None:
-        data["notebook_id"] = notebook_id
-    
+    # Note: intentionally NOT passing notebook_id to backend (it's ignored)
+    # See: https://github.com/lfnovo/open-notebook/issues/574
+
     results = await make_request("POST", "/api/search", json_data=data)
+
+    # Post-filter by notebook (workaround for lfnovo/open-notebook#574)
+    if notebook_id is not None and isinstance(results, list):
+        sources = await make_request(
+            "GET", "/api/sources",
+            params={"notebook_id": notebook_id, "limit": 100},
+        )
+        notes = await make_request(
+            "GET", "/api/notes",
+            params={"notebook_id": notebook_id, "limit": 100},
+        )
+
+        allowed_ids = set()
+        if isinstance(sources, list):
+            allowed_ids.update(s.get("id") for s in sources if s.get("id"))
+        if isinstance(notes, list):
+            allowed_ids.update(n.get("id") for n in notes if n.get("id"))
+
+        results = [r for r in results if r.get("id") in allowed_ids]
+
+    if isinstance(results, list):
+        results = results[:limit]
+
     return {
         "request_id": generate_request_id(),
         "results": results,
