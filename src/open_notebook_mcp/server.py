@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import os
 import re
@@ -437,6 +438,7 @@ async def make_request(
     *,
     json_data: Optional[dict[str, Any]] = None,
     params: Optional[dict[str, Any]] = None,
+    timeout: float = DEFAULT_TIMEOUT_S,
 ) -> dict[str, Any]:
     """Make an HTTP request to the Open Notebook API.
     
@@ -460,7 +462,7 @@ async def make_request(
     if auth_token:
         headers["Authorization"] = f"Bearer {auth_token}"
     
-    async with httpx.AsyncClient(follow_redirects=True, timeout=DEFAULT_TIMEOUT_S) as client:
+    async with httpx.AsyncClient(follow_redirects=True, timeout=timeout) as client:
         try:
             if method == "GET":
                 r = await client.get(url, headers=headers, params=params)
@@ -497,6 +499,62 @@ async def make_request(
                     error_msg = e.response.text or error_msg
             
             raise Exception(f"API request failed: {error_msg}")
+
+# Longer timeout for LLM-powered endpoints (ask, chat)
+LLM_TIMEOUT_S = 120.0
+
+
+async def make_sse_request(
+    endpoint: str,
+    *,
+    json_data: Optional[dict[str, Any]] = None,
+) -> str:
+    """Make a POST request to an SSE endpoint and return the final answer.
+
+    Parses Server-Sent Events, extracts the final_answer from the stream.
+    """
+    base_url = get_base_url()
+    url = f"{base_url}{endpoint}"
+
+    headers = {"Content-Type": "application/json", "Accept": "text/event-stream"}
+    auth_token = get_auth_token()
+    if auth_token:
+        headers["Authorization"] = f"Bearer {auth_token}"
+
+    async with httpx.AsyncClient(follow_redirects=True, timeout=LLM_TIMEOUT_S) as client:
+        try:
+            async with client.stream("POST", url, headers=headers, json=json_data) as r:
+                r.raise_for_status()
+                final_answer = None
+                async for line in r.aiter_lines():
+                    if not line.startswith("data: "):
+                        continue
+                    payload = line[6:]
+                    try:
+                        event = json.loads(payload)
+                    except (ValueError, TypeError):
+                        continue
+                    if event.get("type") == "error":
+                        raise Exception(f"Ask failed: {event.get('message', 'unknown error')}")
+                    if event.get("type") == "final_answer":
+                        final_answer = event.get("content", "")
+                    elif event.get("type") == "complete" and final_answer is None:
+                        final_answer = event.get("final_answer", "")
+
+                if final_answer is None:
+                    raise Exception("No final answer received from ask endpoint")
+                return final_answer
+        except httpx.HTTPError as e:
+            error_msg = str(e)
+            if hasattr(e, "response") and e.response is not None:
+                try:
+                    await e.response.aread()
+                    error_detail = e.response.json()
+                    error_msg = error_detail.get("detail", error_msg)
+                except (ValueError, AttributeError):
+                    error_msg = getattr(e.response, "text", None) or error_msg
+            raise Exception(f"API request failed: {error_msg}")
+
 
 # -----------------------------
 # Notebooks API Tools
@@ -698,7 +756,7 @@ async def create_source(
     if title is not None:
         data["title"] = title
     
-    source = await make_request("POST", "/api/sources", json_data=data)
+    source = await make_request("POST", "/api/sources/json", json_data=data)
     return {
         "request_id": generate_request_id(),
         "source": source,
@@ -971,11 +1029,12 @@ async def ask_question(
     }
     if notebook_id is not None:
         data["notebook_id"] = notebook_id
-    
-    result = await make_request("POST", "/api/search/ask", json_data=data)
+
+    answer = await make_sse_request("/api/search/ask", json_data=data)
     return {
         "request_id": generate_request_id(),
-        "result": result,
+        "answer": answer,
+        "question": question,
     }
 
 @mcp.tool()
@@ -1006,8 +1065,8 @@ async def ask_simple(
     }
     if notebook_id is not None:
         data["notebook_id"] = notebook_id
-    
-    result = await make_request("POST", "/api/search/ask/simple", json_data=data)
+
+    result = await make_request("POST", "/api/search/ask/simple", json_data=data, timeout=LLM_TIMEOUT_S)
     return {
         "request_id": generate_request_id(),
         "result": result,
@@ -1243,7 +1302,7 @@ async def execute_chat(
     if context is not None:
         data["context"] = context
     
-    response = await make_request("POST", "/api/chat/execute", json_data=data)
+    response = await make_request("POST", "/api/chat/execute", json_data=data, timeout=LLM_TIMEOUT_S)
     return {
         "request_id": generate_request_id(),
         "response": response,
