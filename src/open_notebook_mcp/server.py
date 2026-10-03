@@ -958,8 +958,26 @@ async def search(
     """
     limit = max(1, min(limit, 50))
 
-    # Request more if filtering, to ensure enough results survive post-filter
-    request_limit = min(limit * 3, 50) if notebook_id else limit
+    # Over-fetch far past the caller's limit, then re-sort and truncate here.
+    #
+    # Workaround for lfnovo/open-notebook#1431: fn::vector_search ends with a
+    # GROUP BY followed by ORDER BY ... LIMIT. SurrealDB returns grouped rows in
+    # GROUP-KEY order, so the ORDER BY has no effect and LIMIT truncates an
+    # id-ordered list. `note:` sorts before `source:`, so once an instance has
+    # more embedded notes than the limit, SOURCES ARE NEVER RETURNED AT ALL — no
+    # error, no indication, the corpus just looks thin. Measured on our instance:
+    # 234 embedded notes, so any limit <= 234 returned notes only, while a source
+    # scoring 0.6111 (higher than every note returned) was dropped.
+    #
+    # The old cap of 50 was below that threshold, so no caller could reach a
+    # source regardless of what it asked for.
+    #
+    # Also fixes ordering for the caller, since the server's own ordering is
+    # unreliable for the same reason (see upstream #1301/#1306; and text-mode
+    # relevance is raw BM25 and can be negative, upstream #1402).
+    SERVER_SIDE_ORDERING_IS_BROKEN_FETCH = 500
+
+    request_limit = SERVER_SIDE_ORDERING_IS_BROKEN_FETCH
 
     data = {
         "query": query,
@@ -994,7 +1012,19 @@ async def search(
         result_items = [r for r in result_items if r.get("id") in allowed_ids]
 
     if isinstance(result_items, list):
-        result_items = result_items[:limit]
+        # Re-sort by score DESCENDING before truncating — the server's order
+        # cannot be trusted (see the note above). Vector results carry
+        # "similarity", text results carry "relevance"; the latter is raw BM25
+        # and may be negative, which sorts correctly anyway. Anything missing a
+        # score sorts last rather than being dropped.
+        def _score(row: dict[str, Any]) -> float:
+            for key in ("similarity", "relevance"):
+                value = row.get(key)
+                if isinstance(value, (int, float)):
+                    return float(value)
+            return float("-inf")
+
+        result_items = sorted(result_items, key=_score, reverse=True)[:limit]
 
     return {
         "request_id": generate_request_id(),
