@@ -27,8 +27,47 @@ MAX_LIMIT = 100
 DEFAULT_TIMEOUT_S = 30.0
 
 def get_base_url() -> str:
-    """Get the Open Notebook API base URL from environment."""
-    return os.getenv("OPEN_NOTEBOOK_URL", "http://localhost:5055")
+    """Get the Open Notebook API base URL from environment.
+
+    Raises if unset. The old default was "http://localhost:5055", which on every
+    one of our hosts is a CLOSED port — so a missing env var became a connection
+    error instead of a config error, and the message said neither. Sage lost the
+    first minutes of a diagnosis to it on 2026-10-05 and reported it; the silent
+    default is a lie (Franco's rule), and a default pointing at a dead port is
+    worse than no default at all.
+    """
+    url = os.getenv("OPEN_NOTEBOOK_URL")
+    if not url:
+        raise RuntimeError(
+            "OPEN_NOTEBOOK_URL is not set. Refusing to guess — the previous "
+            "default (http://localhost:5055) is a closed port on our hosts and "
+            "turns a config error into a confusing connection error. Set it in "
+            "the open-notebook server's env block in .mcp.json, e.g. "
+            "http://100.102.107.19:5055"
+        )
+    return url
+
+def _request_failed_message(exc: Exception, error_msg: str, endpoint: str = "") -> str:
+    """Build a diagnostic that actually diagnoses.
+
+    Reported by Sage 2026-10-05: every tool failed with exactly
+        "Error executing tool list_notebooks: API request failed:"
+    — nothing after the colon, because httpx can stringify a connection failure
+    to an empty string. An empty suffix cannot distinguish refused from timeout
+    from DNS from a 500, and never said WHICH HOST it tried. The API was healthy
+    the whole time; the process was holding a stale address.
+
+    So: always name the base URL, and fall back to the exception TYPE, which is
+    never blank.
+    """
+    detail = (error_msg or "").strip() or type(exc).__name__
+    try:
+        base = os.getenv("OPEN_NOTEBOOK_URL") or "<OPEN_NOTEBOOK_URL unset>"
+    except Exception:  # pragma: no cover
+        base = "<unknown>"
+    where = f"{base}{endpoint}" if endpoint else base
+    return f"API request failed [{type(exc).__name__}] for {where}: {detail}"
+
 
 def get_auth_token() -> Optional[str]:
     """Get the authentication token from environment."""
@@ -498,7 +537,7 @@ async def make_request(
                     # If error response is not JSON, use text or default message
                     error_msg = e.response.text or error_msg
             
-            raise Exception(f"API request failed: {error_msg}")
+            raise Exception(_request_failed_message(e, error_msg, endpoint))
 
 # Longer timeout for LLM-powered endpoints (ask, chat)
 LLM_TIMEOUT_S = 120.0
@@ -553,7 +592,7 @@ async def make_sse_request(
                     error_msg = error_detail.get("detail", error_msg)
                 except (ValueError, AttributeError):
                     error_msg = getattr(e.response, "text", None) or error_msg
-            raise Exception(f"API request failed: {error_msg}")
+            raise Exception(_request_failed_message(e, error_msg, endpoint))
 
 
 # -----------------------------
