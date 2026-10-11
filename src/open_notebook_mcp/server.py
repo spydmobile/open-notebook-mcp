@@ -721,13 +721,81 @@ async def delete_notebook(notebook_id: str) -> dict[str, Any]:
 # Sources API Tools
 # -----------------------------
 
+
+async def _paged_listing(path: str, params: dict, key: str) -> dict[str, Any]:
+    """Fetch one page and make its INCOMPLETENESS impossible to overlook.
+
+    WHY (2026-10-11): `limit` defaults to 20 and the old `count` field reported
+    rows returned. On a 21-source notebook that produced `count: 20` over twenty
+    rows of which nineteen were distinct — three different true numbers, none of
+    them labelled. Synthesis built an absence proof on enumeration over these
+    tools and concluded two sources had been deleted; both were alive. The
+    mechanism built to escape "I found nothing versus I could not look" answered
+    "I could not look" in the words of "that is everything."
+
+    A bigger default would move the cliff, not label it. So:
+
+    - `returned` and `distinct` are both reported, which exposes duplicate rows.
+    - `has_more` is PROBED, never inferred. `len(rows) == limit` is wrong exactly
+      when the corpus size equals the limit, so one extra request at the next
+      offset turns a guess into a measurement.
+    - `warning` names the remedy, so a caller who reads nothing else still cannot
+      mistake a page for a corpus.
+    - `count` keeps its old meaning. Changing it silently would be this same fault.
+    """
+    rows = await make_request("GET", path, params=params)
+    if not isinstance(rows, list):
+        rows = []
+
+    returned = len(rows)
+    ids = [r.get("id") for r in rows if isinstance(r, dict) and r.get("id")]
+    distinct = len(set(ids))
+    limit = params.get("limit", MAX_LIMIT)
+    offset = params.get("offset", 0)
+
+    has_more = False
+    if returned == limit:
+        probe = dict(params)
+        probe["limit"] = 1
+        probe["offset"] = offset + limit
+        more = await make_request("GET", path, params=probe)
+        has_more = bool(isinstance(more, list) and more)
+
+    warnings = []
+    if has_more:
+        warnings.append(
+            "TRUNCATED: this is a PAGE, not the corpus. More rows exist beyond "
+            f"offset {offset + limit}. Raise `limit` (max {MAX_LIMIT}) or page "
+            "with `offset`. Do NOT treat this list as complete, and do not "
+            "conclude anything is absent from it."
+        )
+    if distinct != returned:
+        warnings.append(
+            f"DUPLICATE rows: {returned} returned but only {distinct} distinct "
+            "ids. Count ids, not rows."
+        )
+
+    return {
+        "request_id": generate_request_id(),
+        "count": returned,
+        "returned": returned,
+        "distinct": distinct,
+        "truncated": has_more,
+        "has_more": has_more,
+        "limit": limit,
+        "offset": offset,
+        "warning": "; ".join(warnings),
+        key: rows,
+    }
+
 @mcp.tool()
 async def list_sources(
     notebook_id: Optional[str] = None,
     limit: int = 20,
     offset: int = 0,
 ) -> dict[str, Any]:
-    """Get all sources with optional filtering.
+    """List ONE PAGE of sources. Check `truncated`/`has_more` before
+    treating the result as the whole corpus.
     
     Args:
         notebook_id: Optional notebook ID to filter by
@@ -741,13 +809,8 @@ async def list_sources(
     params = {"limit": limit, "offset": offset}
     if notebook_id is not None:
         params["notebook_id"] = notebook_id
-    
-    sources = await make_request("GET", "/api/sources", params=params)
-    return {
-        "request_id": generate_request_id(),
-        "count": len(sources) if isinstance(sources, list) else 0,
-        "sources": sources,
-    }
+
+    return await _paged_listing("/api/sources", params, "sources")
 
 @mcp.tool()
 async def get_source(source_id: str) -> dict[str, Any]:
@@ -855,7 +918,8 @@ async def list_notes(
     limit: int = 20,
     offset: int = 0,
 ) -> dict[str, Any]:
-    """Get all notes with optional filtering.
+    """List ONE PAGE of notes. Check `truncated`/`has_more` before
+    treating the result as the whole corpus.
     
     Args:
         notebook_id: Optional notebook ID to filter by
@@ -869,13 +933,8 @@ async def list_notes(
     params = {"limit": limit, "offset": offset}
     if notebook_id is not None:
         params["notebook_id"] = notebook_id
-    
-    notes = await make_request("GET", "/api/notes", params=params)
-    return {
-        "request_id": generate_request_id(),
-        "count": len(notes) if isinstance(notes, list) else 0,
-        "notes": notes,
-    }
+
+    return await _paged_listing("/api/notes", params, "notes")
 
 @mcp.tool()
 async def get_note(note_id: str) -> dict[str, Any]:
